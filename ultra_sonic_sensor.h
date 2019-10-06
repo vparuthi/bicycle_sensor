@@ -4,11 +4,16 @@
 #include "utils.h"
 
 //Trigger Port & Pin
-#define TRIGGER_PORT GPIO_PORT_P2
-#define TRIGGER_PIN GPIO_PIN5
+#define TRIGGER_PORT_FWD GPIO_PORT_P2
+#define TRIGGER_PIN_FWD GPIO_PIN5
+#define TRIGGER_PORT_REAR GPIO_PORT_P2
+#define TRIGGER_PIN_REAR GPIO_PIN7
 
 //number of micro seconds per timer count
 #define MICRO_SEC_PER_TICK 30
+
+#define FORWARD 0
+#define REAR 1
 
 void send_trigger(int port, int pin, int u_delay){
     GPIO_setOutputHighOnPin(port, pin);
@@ -17,7 +22,6 @@ void send_trigger(int port, int pin, int u_delay){
 }
 
 void Init_Distance_Sensor(void){
-    GPIO_setOutputLowOnPin(GPIO_PORT_P1, GPIO_PIN3);
     GPIO_setAsPeripheralModuleFunctionInputPin(GPIO_PORT_P8, GPIO_PIN3, GPIO_PRIMARY_MODULE_FUNCTION);
 }
 

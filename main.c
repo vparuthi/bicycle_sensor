@@ -2,10 +2,13 @@
 #include "ultra_sonic_sensor.h"
 #include "led.h"
 
-volatile int edge_check = 0;
+
 volatile uint16_t time = 0;
+volatile int direction = FORWARD;
+
 // 0 means look for rising edge
 // 1 means look for falling edge
+volatile int edge_check = 0;
 
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void TA1_ISR(void){
@@ -66,7 +69,7 @@ void main(void)
     //All done initializations - turn interrupts back on.
     __enable_interrupt();
 
-    displayScrollText("I AM INENVITABLE");
+    displayScrollText("I AM INEVITABLE");
 
     while(1)
     {
@@ -82,10 +85,9 @@ void main(void)
             buttonState = 0;                            //Capture new button state
         }
 
+        uint16_t lcd_value = distance;
         //Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
-        if (ADCState == 0)
-        {
-            uint16_t lcd_value = distance;
+        if (ADCState == 0 && direction == FORWARD){
             int position = pos4;
             while(position >= 4){
                 if(lcd_value > 0){
@@ -100,7 +102,6 @@ void main(void)
             showChar('C', pos5);
             showChar('M', pos6);
 
-//            showHex((int)distance); //Put the previous result on the LCD display
             ADCState = 1; //Set flag to indicate ADC is busy - ADC ISR (interrupt) will clear it
             ADC_startConversion(ADC_BASE, ADC_SINGLECHANNEL);
         }
@@ -108,13 +109,34 @@ void main(void)
         //Reset the value in the timer before sending a pulse
         reset_timer_a();
 
+        direction = FORWARD;
         //Send trigger pulse
-        send_trigger(TRIGGER_PORT, TRIGGER_PIN, 10);
+        send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
+        mDelay(24);
+
+        // we delay 24 ms because the worst case is a 400 cm distance reading
+        // which is 400 cm * 58 = 23,200 us
+        distance = calculate_distance(time);
+        turn_on_led(distance);
+
+        direction = REAR;
+
+        //Reset the value in the timer before sending a pulse
+        reset_timer_a();
+
+        send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
+        mDelay(24);
 
         distance = calculate_distance(time);
+        turn_on_buzzer(distance);
 
-        //Turn on appropriate LED
-        turn_on_led(distance);
+
+//        if (direction == FORWARD){
+//            turn_on_buzzer(distance);
+//        }else{
+//            //Turn on appropriate LED
+//            turn_on_led(distance);
+//        }
     }
 
     /*

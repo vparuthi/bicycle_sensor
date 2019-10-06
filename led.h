@@ -47,14 +47,10 @@ void turn_on_led(uint16_t distance){
     }else if(distance < 40 && distance >= 20){
         turn_off_all_leds();
         turn_off_buzzer();
-        turn_on_buzzer();
-        param.timerPeriod = 1000;
         flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 125, true);
     }else{
         turn_off_all_leds();
         turn_off_buzzer();
-        turn_on_buzzer();
-        param.timerPeriod = 800;
         flash_led(RED_LED_PORT, RED_LED_PIN, 75, true);
     }
 }
