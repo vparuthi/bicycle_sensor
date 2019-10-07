@@ -11,12 +11,11 @@ void turn_off_buzzer(void){
     }
 }
 void turn_on_buzzer(uint16_t distance){
-
     if(distance < 40 && distance >= 20){
         turn_off_buzzer();
         param.timerPeriod = 1000;
         Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
-    }else if(distance < 20 && distance >= 5){
+    }else if(distance < 20){
         turn_off_buzzer();
         param.timerPeriod = 800;
         Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM

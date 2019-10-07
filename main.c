@@ -3,7 +3,7 @@
 #include "led.h"
 
 
-volatile uint16_t time = 0;
+volatile uint16_t time = 20;
 volatile int direction = FORWARD;
 
 // 0 means look for rising edge
@@ -54,7 +54,8 @@ void main(void)
     Init_LCD();             //Sets up the LaunchPad LCD display
     Init_Distance_Sensor(); //Sets up the pins for the ultrasonic sensor
     init_timer();           //Sets up continuous and capture timers
-    volatile uint16_t distance = 100;
+    volatile uint16_t distance_forward = 100;
+    volatile uint16_t distance_rear = 100;
 
      /*
      * The MSP430 MCUs have a variety of low power modes. They can be almost
@@ -71,6 +72,9 @@ void main(void)
 
     displayScrollText("I AM INEVITABLE");
 
+    uint16_t counter = 0;
+
+
     while(1)
     {
         //Buttons SW1 and SW2 are active low (1 until pressed, then 0)
@@ -85,7 +89,7 @@ void main(void)
             buttonState = 0;                            //Capture new button state
         }
 
-        uint16_t lcd_value = distance;
+        uint16_t lcd_value = distance_rear;
         //Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
         if (ADCState == 0 && direction == FORWARD){
             int position = pos4;
@@ -106,37 +110,35 @@ void main(void)
             ADC_startConversion(ADC_BASE, ADC_SINGLECHANNEL);
         }
 
-        //Reset the value in the timer before sending a pulse
-        reset_timer_a();
-
-        direction = FORWARD;
-        //Send trigger pulse
-        send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
-        mDelay(24);
-
         // we delay 24 ms because the worst case is a 400 cm distance reading
         // which is 400 cm * 58 = 23,200 us
-        distance = calculate_distance(time);
-        turn_on_led(distance);
 
-        direction = REAR;
+        counter++;
 
-        //Reset the value in the timer before sending a pulse
-        reset_timer_a();
+        if(counter > 10){
+            if(direction == FORWARD){
+                direction = REAR;
 
-        send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
-        mDelay(24);
+                //Reset the value in the timer before sending a pulse
+                reset_timer_a();
 
-        distance = calculate_distance(time);
-        turn_on_buzzer(distance);
+                send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
+                distance_forward = calculate_distance(time);
+//                turn_on_buzzer(distance_forward);
+                turn_on_led(distance_forward);
+            }else{
+                direction = FORWARD;
 
+                //Reset the value in the timer before sending a pulse
+                reset_timer_a();
 
-//        if (direction == FORWARD){
-//            turn_on_buzzer(distance);
-//        }else{
-//            //Turn on appropriate LED
-//            turn_on_led(distance);
-//        }
+                send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
+                distance_rear = calculate_distance(time);
+                turn_on_buzzer(distance_rear);
+//                turn_on_led(distance_rear);
+            }
+            counter = 0;
+        }
     }
 
     /*
