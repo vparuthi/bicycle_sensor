@@ -25,10 +25,18 @@ void turn_off_all_leds(void){
 
 void flash_led(int port, int pin, int mdelay, bool flash){
     if(flash){
+        int counter = 0;
         GPIO_setOutputHighOnPin(port, pin);
-        mDelay(mdelay);
+
+        while(counter < mdelay * 1000){
+            counter++;
+        }
+
         GPIO_setOutputLowOnPin(port, pin);
-        mDelay(mdelay);
+        counter = 0;
+        while(counter < mdelay * 1000){
+            counter++;
+        }
     }else{
         GPIO_setOutputHighOnPin(port, pin);
     }
@@ -39,18 +47,18 @@ void turn_on_led(uint16_t distance){
         turn_off_all_leds();
         turn_off_buzzer();
         flash_led(GREEN_LED_PORT, GREEN_LED_PIN, 0, false);
-        mDelay(10);
+        mDelay(1);
     } else if (distance < 60 && distance >= 40) {
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(YELLOW_LED_PORT, YELLOW_LED_PIN, 250, true);
+        flash_led(YELLOW_LED_PORT, YELLOW_LED_PIN, 5, true);
     }else if(distance < 40 && distance >= 20){
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 125, true);
+        flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 3, true);
     }else{
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(RED_LED_PORT, RED_LED_PIN, 75, true);
+        flash_led(RED_LED_PORT, RED_LED_PIN, 1, true);
     }
 }

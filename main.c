@@ -54,8 +54,8 @@ void main(void)
     Init_LCD();             //Sets up the LaunchPad LCD display
     Init_Distance_Sensor(); //Sets up the pins for the ultrasonic sensor
     init_timer();           //Sets up continuous and capture timers
-    volatile uint16_t distance_forward = 100;
-    volatile uint16_t distance_rear = 100;
+    volatile uint16_t rear_distance = 100;
+    volatile uint16_t forward_distance = 100;
 
      /*
      * The MSP430 MCUs have a variety of low power modes. They can be almost
@@ -89,22 +89,29 @@ void main(void)
             buttonState = 0;                            //Capture new button state
         }
 
-        uint16_t lcd_value = distance_rear;
+        uint16_t lcd_value = forward_distance;
         //Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
-        if (ADCState == 0 && direction == FORWARD){
-            int position = pos4;
-            while(position >= 4){
-                if(lcd_value > 0){
-                    char digit = 48 + (lcd_value%10);
-                    lcd_value = lcd_value/10;
-                    showChar(digit, position);
-                }else{
-                    showChar('0', position);
-                }
+        if (ADCState == 0){
+            int forward_lcd_value = forward_distance;
+            int rear_lcd_value = rear_distance;
+
+            int position = pos3;
+            int i = 0;
+
+            //display forward distance
+            for(i = 0; i < 3; i++){
+                char digit = forward_lcd_value%10 + 48;
+                showChar(digit, position);
+                forward_lcd_value /= 10;
                 position -= 2;
             }
-            showChar('C', pos5);
-            showChar('M', pos6);
+
+            //display rear distance
+            showChar((char) (rear_lcd_value%10 + 48), pos6);
+            rear_lcd_value /= 10;
+            showChar((char) (rear_lcd_value%10 + 48), pos5);
+            rear_lcd_value /= 10;
+            showChar((char) (rear_lcd_value%10 + 48), pos4);
 
             ADCState = 1; //Set flag to indicate ADC is busy - ADC ISR (interrupt) will clear it
             ADC_startConversion(ADC_BASE, ADC_SINGLECHANNEL);
@@ -116,6 +123,7 @@ void main(void)
         counter++;
 
         if(counter > 10){
+            // for some reason this if statement we have to check for forward to update rear
             if(direction == FORWARD){
                 direction = REAR;
 
@@ -123,9 +131,9 @@ void main(void)
                 reset_timer_a();
 
                 send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
-                distance_forward = calculate_distance(time);
+                rear_distance = calculate_distance(time);
 //                turn_on_buzzer(distance_forward);
-                turn_on_led(distance_forward);
+                turn_on_led(rear_distance);
             }else{
                 direction = FORWARD;
 
@@ -133,9 +141,9 @@ void main(void)
                 reset_timer_a();
 
                 send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
-                distance_rear = calculate_distance(time);
-                turn_on_buzzer(distance_rear);
-//                turn_on_led(distance_rear);
+                forward_distance = calculate_distance(time);
+                turn_on_buzzer(forward_distance);
+//                turn_on_led(forward_distance);
             }
             counter = 0;
         }
