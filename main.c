@@ -2,13 +2,15 @@
 #include "ultra_sonic_sensor.h"
 #include "led.h"
 
+#define LONG_BTN_HOLD_TIME 250
+#define SHORT_BTN_HOLD_TIME 700
 
 volatile uint16_t time = 20;
 volatile int direction = FORWARD;
-
 // 0 means look for rising edge
 // 1 means look for falling edge
 volatile int edge_check = 0;
+
 
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void TA1_ISR(void){
@@ -22,12 +24,91 @@ __interrupt void TA1_ISR(void){
     Timer_A_clearCaptureCompareInterrupt(TIMER_A1_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
 }
 
+int adjust_rear_sensor(void){
+    displayScrollText("REAR SETUP");
+    int button_hold_count = 0;
+
+    while(1){
+        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
+            button_hold_count++;
+        }else{
+            button_hold_count = 0;
+        }
+
+        if(button_hold_count > SHORT_BTN_HOLD_TIME){
+            return 0;
+        }
+    }
+}
+
+int adjust_front_distance(void){
+    displayScrollText("FRONT SETUP");
+    int button_hold_count = 0;
+
+    while(1){
+        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
+            button_hold_count++;
+        }else{
+            button_hold_count = 0;
+        }
+
+        if(button_hold_count > SHORT_BTN_HOLD_TIME){
+            return 0;
+        }
+    }
+}
+
+void userMode(void){
+    displayScrollText("ENTERING USER MODE");
+    int return_count = 0;
+    int rear_button_count = 0;
+    int front_button_count = 0;
+    int button_state = 1;
+
+    while(1){
+        // show options
+        showChar('F', pos5);
+        showChar('R', pos2);
+
+        // return back to main
+        if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0) && (GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
+            return_count++;
+        } else {
+            button_state = 1;
+            return_count = 0;
+        }
+        if(return_count > SHORT_BTN_HOLD_TIME && button_state){
+            return;
+        }
+
+        // adjust rear distance
+        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
+            rear_button_count++;
+        } else {
+            rear_button_count = 0;
+        }
+        if(rear_button_count > SHORT_BTN_HOLD_TIME && button_state){
+            rear_button_count = 0;
+            button_state = adjust_rear_sensor();
+        }
+
+        // adjust front distance
+        if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
+            front_button_count++;
+        } else {
+            front_button_count = 0;
+        }
+        if(front_button_count > SHORT_BTN_HOLD_TIME && button_state){
+            front_button_count = 0;
+            button_state = adjust_front_distance();
+        }
+    }
+}
 
 char ADCState = 0; //Busy state of the ADC
 int16_t ADCResult = 0; //Storage for the ADC conversion result
 
-void main(void)
-{
+void main(void){
     char buttonState = 0; //Current button press state (to allow edge detection)
 
     /*
@@ -74,9 +155,10 @@ void main(void)
 
     uint16_t counter = 0;
 
-
+    int button_hold_count = 0;
     while(1)
     {
+
         //Buttons SW1 and SW2 are active low (1 until pressed, then 0)
         if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 1) & (buttonState == 0)) //Look for rising edge
         {
@@ -87,6 +169,18 @@ void main(void)
         {
             Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
             buttonState = 0;                            //Capture new button state
+        }
+
+        // both push buttons held
+        if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0) && (GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
+            button_hold_count++;
+        } else {
+            button_hold_count = 0;
+        }
+
+        if(button_hold_count > LONG_BTN_HOLD_TIME){
+            button_hold_count = 0;
+            userMode();
         }
 
         uint16_t lcd_value = forward_distance;
