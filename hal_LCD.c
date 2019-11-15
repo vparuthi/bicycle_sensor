@@ -44,6 +44,8 @@
 #include "string.h"
 #include "main.h"
 
+const int positions[NUM_POS] = {pos6, pos5, pos4, pos3, pos2, pos1};
+
 // LCD memory map for numeric digits
 const char digit[10][2] =
 {
@@ -217,18 +219,17 @@ void clearLCD()
 }
 
 void display_distance(int distance){
-    const int positions[4] = {pos4, pos3, pos2, pos1};
     int num = distance;
     int i = 0;
 
     if(distance <= 0){
         for(i = 0; i < 0; i++){
-            showChar('0', positions[i]);
+            showChar('0', positions[i + 2]);
         }
     }else{
         for(i = 0; i < 4; i++){
             char c = (num%10) + 48;
-            showChar(c, positions[i]);
+            showChar(c, positions[i + 2]);
             num = num/10;
         }
     }
@@ -236,4 +237,22 @@ void display_distance(int distance){
     showChar('C', pos5);
     showChar('M', pos6);
     return;
+}
+void display_live_distance(int front_distance, int rear_distance){
+    int forward_lcd_value = front_distance;
+    int rear_lcd_value = rear_distance;
+    int i = 0;
+
+    for(i = 0; i < NUM_POS; i++){
+        if(i < 3){
+            char digit = forward_lcd_value%10 + 48;
+            forward_lcd_value /= 10;
+            showChar(digit, positions[i]);
+        }else{
+            char digit = rear_lcd_value%10 + 48;
+            rear_lcd_value /= 10;
+            showChar(digit, positions[i]);
+        }
+    }
+
 }

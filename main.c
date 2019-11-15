@@ -2,9 +2,13 @@
 #include "ultra_sonic_sensor.h"
 #include "led.h"
 
+const char* rear_threshold_names[NUM_REAR_THRESHOLDS] = {"RED", "ORANGE", "YELLOW"};
+const char* front_threshold_names[NUM_FWD_THRESHOLDS] = {"2 BEEPS", "4 BEEPS"};
+
 volatile uint16_t time = 20;
 volatile int direction = FORWARD;
 volatile int* rear_thresholds;
+volatile int* front_thresholds;
 
 // 0 means look for rising edge
 // 1 means look for falling edge
@@ -53,10 +57,13 @@ void on_single_button_hold(int *count, int *button_state, int *both_pressed, int
 
         if(port == SW1_PORT){
             displayScrollText("REAR SETUP");
-            // call set_rear_distance_thresholds() to set all three thresholds
-            set_rear_distance_thresholds();
+            // call set_distance_thresholds() to set all three thresholds
+            set_distance_thresholds(rear_thresholds, NUM_REAR_THRESHOLDS);
         }else{
             displayScrollText("FRONT SETUP");
+            // call set_distance_thresholds() to set all three thresholds
+            set_distance_thresholds(front_thresholds, NUM_FWD_THRESHOLDS);
+
         }
 
 
@@ -123,23 +130,29 @@ int adjust_distance(int min_distance, int init_distance_val){
     }
 }
 
-void set_rear_distance_thresholds(){
-    const char* threshold_names[NUM_REAR_THRESHOLDS] = {"RED", "ORANGE", "YELLOW"};
+void set_distance_thresholds(int *thresholds, int len){
 
     int i = 0;
     int min_distance = 0;
+    char ** threshold_names;
 
-    for(i = 0; i < NUM_REAR_THRESHOLDS; i++){
+    if(len == NUM_REAR_THRESHOLDS){
+        threshold_names = rear_threshold_names;
+    }else{
+        threshold_names = front_threshold_names;
+    }
+
+    for(i = 0; i < len; i++){
         displayScrollText(threshold_names[i]);
 
-        if(min_distance < rear_thresholds[i]){
-            display_distance(rear_thresholds[i]);
-            min_distance = adjust_distance(min_distance, rear_thresholds[i]);
+        if(min_distance < thresholds[i]){
+            display_distance(thresholds[i]);
+            min_distance = adjust_distance(min_distance, thresholds[i]);
         }else{
             display_distance(min_distance);
             min_distance = adjust_distance(min_distance, min_distance);
         }
-        rear_thresholds[i] = min_distance;
+        thresholds[i] = min_distance;
     }
 }
 
@@ -148,8 +161,8 @@ void user_mode(void){
 
     // counters:
     int return_count = 0;
-    int left_count = 0;
-    int right_count = 0;
+    int rear_button_count = 0;
+    int front_button_count = 0;
 
     // used to prevent users from skipping back twice
     int button_state = 1;
@@ -177,10 +190,10 @@ void user_mode(void){
         }
 
         // rear
-        on_single_button_hold(&left_count, &button_state, &both_pressed, SW1_PORT, SW1_PIN);
+        on_single_button_hold(&rear_button_count, &button_state, &both_pressed, SW1_PORT, SW1_PIN);
 
         // front
-        on_single_button_hold(&right_count, &button_state, &both_pressed, SW2_PORT, SW2_PIN);
+        on_single_button_hold(&front_button_count, &button_state, &both_pressed, SW2_PORT, SW2_PIN);
     }
 }
 
@@ -213,7 +226,10 @@ void main(void){
     Init_UART();            //Sets up an echo over a COM port
     Init_LCD();             //Sets up the LaunchPad LCD display
     Init_Distance_Sensor(); //Sets up the pins for the ultrasonic sensor
+
+    // our inits
     init_timer();           //Sets up continuous and capture timers
+    init_thresholds();      //Sets up the default front & rear threshold values
     volatile uint16_t rear_distance = 100;
     volatile uint16_t forward_distance = 100;
 
@@ -230,18 +246,11 @@ void main(void){
     //All done initializations - turn interrupts back on.
     __enable_interrupt();
 
-//    displayScrollText("I AM INEVITABLE");
-
     uint16_t counter = 0;
     int button_hold_count = 0;
 
-    // initializing rear_thresholds
-    rear_thresholds = malloc(sizeof(int) * NUM_REAR_THRESHOLDS);
-    rear_thresholds[0] = DEFAULT_RED_THRESHOLD;
-    rear_thresholds[1] = DEFAULT_YELLOW_THRESHOLD;
-    rear_thresholds[2] = DEFAULT_ORANGE_THRESHOLD;
-
     while(1){
+        // check for user mode
         if(on_double_button_hold(&button_hold_count, LONG_BTN_HOLD_TIME)){
             button_hold_count = 0;
             user_mode();
@@ -260,38 +269,21 @@ void main(void){
         }
 
         uint16_t lcd_value = forward_distance;
-        //Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
+
+        // Display distances
+        // Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
         if (ADCState == 0){
-            int forward_lcd_value = forward_distance;
-            int rear_lcd_value = rear_distance;
-
-            int position = pos3;
-            int i = 0;
-
-            //display forward distance
-            for(i = 0; i < 3; i++){
-                char digit = forward_lcd_value%10 + 48;
-                showChar(digit, position);
-                forward_lcd_value /= 10;
-                position -= 2;
-            }
-
-            //display rear distance
-            showChar((char) (rear_lcd_value%10 + 48), pos6);
-            rear_lcd_value /= 10;
-            showChar((char) (rear_lcd_value%10 + 48), pos5);
-            rear_lcd_value /= 10;
-            showChar((char) (rear_lcd_value%10 + 48), pos4);
+            display_live_distance(forward_distance, rear_distance);
 
             ADCState = 1; //Set flag to indicate ADC is busy - ADC ISR (interrupt) will clear it
             ADC_startConversion(ADC_BASE, ADC_SINGLECHANNEL);
         }
 
+        // Triggering ultrasonic sensors
         // we delay 24 ms because the worst case is a 400 cm distance reading
         // which is 400 cm * 58 = 23,200 us
 
         counter++;
-
         if(counter > 10){
             // for some reason this if statement we have to check for forward to update rear
             if(direction == FORWARD){
@@ -312,29 +304,30 @@ void main(void){
 
                 send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
                 forward_distance = calculate_distance(time);
-                turn_on_buzzer(forward_distance);
-//                turn_on_led(forward_distance);
+                buzzer(forward_distance, front_thresholds);
             }
             counter = 0;
         }
     }
-
-    /*
-     * You can use the following code if you plan on only using interrupts
-     * to handle all your system events since you don't need any infinite loop of code.
-     *
-     * //Enter LPM0 - interrupts only
-     * __bis_SR_register(LPM0_bits);
-     * //For debugger to let it know that you meant for there to be no more code
-     * __no_operation();
-    */
-
 }
 
 void reset_timer_a(void){
     Timer_A_stop(TIMER_A1_BASE);
     Timer_A_clear(TIMER_A1_BASE);
     Timer_A_startCounter(TIMER_A1_BASE, TIMER_A_CONTINUOUS_MODE);
+}
+
+void init_thresholds(){
+    // initializing rear_thresholds
+    rear_thresholds = malloc(sizeof(int) * NUM_REAR_THRESHOLDS);
+    rear_thresholds[0] = DEFAULT_RED_THRESHOLD;
+    rear_thresholds[1] = DEFAULT_YELLOW_THRESHOLD;
+    rear_thresholds[2] = DEFAULT_ORANGE_THRESHOLD;
+
+    // initializing front thresholds
+    front_thresholds = malloc(sizeof(int) * NUM_FWD_THRESHOLDS);
+    front_thresholds[0] = DEFAULT_2_BEEP_THRES;
+    front_thresholds[1] = DEFAULT_4_BEEP_THRES;
 }
 
 void init_timer(void){

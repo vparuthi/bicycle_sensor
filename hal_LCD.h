@@ -51,6 +51,7 @@
 #define pos4 10  /* Digit A4 - L10 */
 #define pos5 2   /* Digit A5 - L2  */
 #define pos6 18  /* Digit A6 - L18 */
+#define NUM_POS 6
 
 // Define word access definitions to LCD memories
 #define LCDMEMW ((int*)LCDMEM)
@@ -64,6 +65,7 @@
 
 extern const char digit[10][2];
 extern const char alphabetBig[26][2];
+extern const int positions[NUM_POS];
 
 void Init_LCD(void);
 void displayScrollText(char*);
@@ -72,6 +74,7 @@ void showHex(int hex);
 void clearLCD(void);
 
 void display_distance(int distance);
+void display_live_distance(int front_distance, int rear_distance);
 
 
 #endif /* HAL_LCD_H_ */
