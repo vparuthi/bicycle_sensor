@@ -215,3 +215,25 @@ void clearLCD()
     LCDMEMW[pos6/2] = 0;
     LCDMEM[12] = LCDMEM[13] = 0;
 }
+
+void display_distance(int distance){
+    int positions[4] = {pos4, pos3, pos2, pos1};
+    int num = distance;
+    int i = 0;
+
+    if(distance <= 0){
+        for(i = 0; i < 0; i++){
+            showChar('0', positions[i]);
+        }
+    }else{
+        for(i = 0; i < 4; i++){
+            char c = (num%10) + 48;
+            showChar(c, positions[i]);
+            num = num/10;
+        }
+    }
+
+    showChar('C', pos5);
+    showChar('M', pos6);
+    return;
+}

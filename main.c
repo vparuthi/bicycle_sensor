@@ -2,9 +2,6 @@
 #include "ultra_sonic_sensor.h"
 #include "led.h"
 
-#define LONG_BTN_HOLD_TIME 250
-#define SHORT_BTN_HOLD_TIME 700
-
 volatile uint16_t time = 20;
 volatile int direction = FORWARD;
 // 0 means look for rising edge
@@ -24,46 +21,118 @@ __interrupt void TA1_ISR(void){
     Timer_A_clearCaptureCompareInterrupt(TIMER_A1_BASE, TIMER_A_CAPTURECOMPARE_REGISTER_2);
 }
 
-int adjust_rear_sensor(void){
-    displayScrollText("REAR SETUP");
-    int button_hold_count = 0;
+// called when both button held functionality is needed
+int on_double_button_hold(int *count){
+    // both buttons held
+    if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
+        *count = *count + 1;
+    }else{
+        *count = 0;
+    }
 
-    while(1){
-        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
-            button_hold_count++;
+    if(*count > SHORT_BTN_HOLD_TIME){
+        return 1;
+    }else{
+        return 0;
+    }
+}
+
+// called when choosing to change forward or rear settings
+void on_single_button_hold(int *count, int *button_state, int *both_pressed, int port, int pin){
+    if ((GPIO_getInputPinValue(port, pin) == 0) && !(*both_pressed)){
+        (*count)++;
+    } else {
+        *(count) = 0;
+    }
+
+    if(*count > SHORT_BTN_HOLD_TIME && *button_state){
+        // reset count and button_state
+        *count = 0;
+        *button_state = 0;
+
+        if(port == SW1_PORT){
+            displayScrollText("REAR SETUP");
+            adjust_distance(REAR);
         }else{
-            button_hold_count = 0;
+            displayScrollText("FRONT SETUP");
+            adjust_distance(FORWARD);
+        }
+        clearLCD();
+    }
+}
+
+// called when changing the actual distance value
+void on_button_click(int *distance, int *counter, int *button_state, int port, int pin){
+    if(GPIO_getInputPinValue(port, pin) == 0 && (*button_state)){
+        (*counter)++;
+    }else{
+        *button_state = 1;
+        *counter = 0;
+    }
+
+    if(*counter > TOGGLE_TIME){
+        // if left button decrement distance value
+        if(port == SW1_PORT){
+            if(*distance > 0){
+                (*distance)--;
+            }
+        }else{
+            (*distance)++;
         }
 
-        if(button_hold_count > SHORT_BTN_HOLD_TIME){
-            return 0;
+        // display distance
+        display_distance(*distance);
+
+        // reset button_counter and state so one click doesn't trigger multiple times
+        *counter = 0;
+        *button_state = 0;
+    }
+}
+
+int adjust_distance(int direction){
+    display_distance(1);
+
+    int both_buttons = 0;
+    int left_button = 0;
+    int right_button = 0;
+    int distance = 0;
+    int button_state = 0;
+
+    while(1){
+        // both buttons held
+        if(on_double_button_hold(&both_buttons)){
+            return distance;
+        }
+
+        /* note: the on_button_click was implemented to work only for a single button click,
+         * but due to the use of the same button_state variable in the front and rear calls users
+         * can hold the button to change the distance value*/
+
+        // left button
+        if(!both_buttons){
+            on_button_click(&distance, &left_button, &button_state, SW1_PORT, SW1_PIN);
+        }
+
+        // right button
+        if(!both_buttons){
+            on_button_click(&distance, &right_button, &button_state, SW2_PORT, SW2_PIN);
         }
     }
 }
 
-int adjust_front_distance(void){
-    displayScrollText("FRONT SETUP");
-    int button_hold_count = 0;
+void user_mode(void){
+    displayScrollText("USER MODE");
 
-    while(1){
-        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
-            button_hold_count++;
-        }else{
-            button_hold_count = 0;
-        }
-
-        if(button_hold_count > SHORT_BTN_HOLD_TIME){
-            return 0;
-        }
-    }
-}
-
-void userMode(void){
-    displayScrollText("ENTERING USER MODE");
+    // counters:
     int return_count = 0;
-    int rear_button_count = 0;
-    int front_button_count = 0;
+    int left_count = 0;
+    int right_count = 0;
+
+    // used to prevent users from skipping back twice
     int button_state = 1;
+
+    // used to prevent both buttons being held and triggering the R or F buttons
+    int both_pressed = 0;
 
     while(1){
         // show options
@@ -73,35 +142,22 @@ void userMode(void){
         // return back to main
         if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0) && (GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
             return_count++;
+            both_pressed = 1;
         } else {
-            button_state = 1;
             return_count = 0;
+            button_state = 1;
+            both_pressed = 0;
         }
+
         if(return_count > SHORT_BTN_HOLD_TIME && button_state){
             return;
         }
 
-        // adjust rear distance
-        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
-            rear_button_count++;
-        } else {
-            rear_button_count = 0;
-        }
-        if(rear_button_count > SHORT_BTN_HOLD_TIME && button_state){
-            rear_button_count = 0;
-            button_state = adjust_rear_sensor();
-        }
+        // rear
+        on_single_button_hold(&left_count, &button_state, &both_pressed, SW1_PORT, SW1_PIN);
 
-        // adjust front distance
-        if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
-            front_button_count++;
-        } else {
-            front_button_count = 0;
-        }
-        if(front_button_count > SHORT_BTN_HOLD_TIME && button_state){
-            front_button_count = 0;
-            button_state = adjust_front_distance();
-        }
+        // front
+        on_single_button_hold(&right_count, &button_state, &both_pressed, SW2_PORT, SW2_PIN);
     }
 }
 
@@ -151,14 +207,12 @@ void main(void){
     //All done initializations - turn interrupts back on.
     __enable_interrupt();
 
-    displayScrollText("I AM INEVITABLE");
+//    displayScrollText("I AM INEVITABLE");
 
     uint16_t counter = 0;
 
     int button_hold_count = 0;
-    while(1)
-    {
-
+    while(1){
         //Buttons SW1 and SW2 are active low (1 until pressed, then 0)
         if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 1) & (buttonState == 0)) //Look for rising edge
         {
@@ -180,7 +234,7 @@ void main(void){
 
         if(button_hold_count > LONG_BTN_HOLD_TIME){
             button_hold_count = 0;
-            userMode();
+            user_mode();
         }
 
         uint16_t lcd_value = forward_distance;

@@ -71,5 +71,7 @@ void showChar(char, int);
 void showHex(int hex);
 void clearLCD(void);
 
+void display_distance(int distance);
+
 
 #endif /* HAL_LCD_H_ */
