@@ -4,10 +4,11 @@
 
 volatile uint16_t time = 20;
 volatile int direction = FORWARD;
+volatile int* rear_thresholds;
+
 // 0 means look for rising edge
 // 1 means look for falling edge
 volatile int edge_check = 0;
-
 
 #pragma vector=TIMER1_A1_VECTOR
 __interrupt void TA1_ISR(void){
@@ -22,7 +23,7 @@ __interrupt void TA1_ISR(void){
 }
 
 // called when both button held functionality is needed
-int on_double_button_hold(int *count){
+int on_double_button_hold(int *count, int hold_time){
     // both buttons held
     if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) && (GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0)){
         *count = *count + 1;
@@ -30,7 +31,7 @@ int on_double_button_hold(int *count){
         *count = 0;
     }
 
-    if(*count > SHORT_BTN_HOLD_TIME){
+    if(*count > hold_time){
         return 1;
     }else{
         return 0;
@@ -52,17 +53,20 @@ void on_single_button_hold(int *count, int *button_state, int *both_pressed, int
 
         if(port == SW1_PORT){
             displayScrollText("REAR SETUP");
-            adjust_distance(REAR);
+            // call set_rear_distance_thresholds() to set all three thresholds
+            set_rear_distance_thresholds();
         }else{
             displayScrollText("FRONT SETUP");
-            adjust_distance(FORWARD);
         }
+
+
+        // clear the LCD prior to exiting
         clearLCD();
     }
 }
 
 // called when changing the actual distance value
-void on_button_click(int *distance, int *counter, int *button_state, int port, int pin){
+void on_button_click(int *distance, int *counter, int *button_state, int min_distance, int port, int pin){
     if(GPIO_getInputPinValue(port, pin) == 0 && (*button_state)){
         (*counter)++;
     }else{
@@ -73,7 +77,7 @@ void on_button_click(int *distance, int *counter, int *button_state, int port, i
     if(*counter > TOGGLE_TIME){
         // if left button decrement distance value
         if(port == SW1_PORT){
-            if(*distance > 0){
+            if(*distance > min_distance + 1){
                 (*distance)--;
             }
         }else{
@@ -89,18 +93,17 @@ void on_button_click(int *distance, int *counter, int *button_state, int port, i
     }
 }
 
-int adjust_distance(int direction){
-    display_distance(1);
-
+int adjust_distance(int min_distance, int init_distance_val){
     int both_buttons = 0;
     int left_button = 0;
     int right_button = 0;
-    int distance = 0;
     int button_state = 0;
+    int distance = init_distance_val;
+
 
     while(1){
         // both buttons held
-        if(on_double_button_hold(&both_buttons)){
+        if(on_double_button_hold(&both_buttons, SHORT_BTN_HOLD_TIME)){
             return distance;
         }
 
@@ -110,13 +113,33 @@ int adjust_distance(int direction){
 
         // left button
         if(!both_buttons){
-            on_button_click(&distance, &left_button, &button_state, SW1_PORT, SW1_PIN);
+            on_button_click(&distance, &left_button, &button_state, min_distance, SW1_PORT, SW1_PIN);
         }
 
         // right button
         if(!both_buttons){
-            on_button_click(&distance, &right_button, &button_state, SW2_PORT, SW2_PIN);
+            on_button_click(&distance, &right_button, &button_state, min_distance, SW2_PORT, SW2_PIN);
         }
+    }
+}
+
+void set_rear_distance_thresholds(){
+    const char* threshold_names[NUM_REAR_THRESHOLDS] = {"RED", "ORANGE", "YELLOW"};
+
+    int i = 0;
+    int min_distance = 0;
+
+    for(i = 0; i < NUM_REAR_THRESHOLDS; i++){
+        displayScrollText(threshold_names[i]);
+
+        if(min_distance < rear_thresholds[i]){
+            display_distance(rear_thresholds[i]);
+            min_distance = adjust_distance(min_distance, rear_thresholds[i]);
+        }else{
+            display_distance(min_distance);
+            min_distance = adjust_distance(min_distance, min_distance);
+        }
+        rear_thresholds[i] = min_distance;
     }
 }
 
@@ -210,9 +233,20 @@ void main(void){
 //    displayScrollText("I AM INEVITABLE");
 
     uint16_t counter = 0;
-
     int button_hold_count = 0;
+
+    // initializing rear_thresholds
+    rear_thresholds = malloc(sizeof(int) * NUM_REAR_THRESHOLDS);
+    rear_thresholds[0] = DEFAULT_RED_THRESHOLD;
+    rear_thresholds[1] = DEFAULT_YELLOW_THRESHOLD;
+    rear_thresholds[2] = DEFAULT_ORANGE_THRESHOLD;
+
     while(1){
+        if(on_double_button_hold(&button_hold_count, LONG_BTN_HOLD_TIME)){
+            button_hold_count = 0;
+            user_mode();
+        }
+
         //Buttons SW1 and SW2 are active low (1 until pressed, then 0)
         if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 1) & (buttonState == 0)) //Look for rising edge
         {
@@ -223,18 +257,6 @@ void main(void){
         {
             Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
             buttonState = 0;                            //Capture new button state
-        }
-
-        // both push buttons held
-        if ((GPIO_getInputPinValue(SW2_PORT, SW2_PIN) == 0) && (GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0)){
-            button_hold_count++;
-        } else {
-            button_hold_count = 0;
-        }
-
-        if(button_hold_count > LONG_BTN_HOLD_TIME){
-            button_hold_count = 0;
-            user_mode();
         }
 
         uint16_t lcd_value = forward_distance;
@@ -281,7 +303,7 @@ void main(void){
                 send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
                 rear_distance = calculate_distance(time);
 //                turn_on_buzzer(distance_forward);
-                turn_on_led(rear_distance);
+                turn_on_led(rear_distance, rear_thresholds);
             }else{
                 direction = FORWARD;
 

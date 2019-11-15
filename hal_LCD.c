@@ -217,7 +217,7 @@ void clearLCD()
 }
 
 void display_distance(int distance){
-    int positions[4] = {pos4, pos3, pos2, pos1};
+    const int positions[4] = {pos4, pos3, pos2, pos1};
     int num = distance;
     int i = 0;
 

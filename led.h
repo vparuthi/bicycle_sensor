@@ -42,17 +42,17 @@ void flash_led(int port, int pin, int mdelay, bool flash){
     }
 }
 
-void turn_on_led(uint16_t distance){
-    if(distance >= 60){
+void turn_on_led(uint16_t distance, int *rear_thresholds){
+    if(distance >= rear_thresholds[2]){
         turn_off_all_leds();
         turn_off_buzzer();
         flash_led(GREEN_LED_PORT, GREEN_LED_PIN, 0, false);
         mDelay(1);
-    } else if (distance < 60 && distance >= 40) {
+    } else if (distance < rear_thresholds[2] && distance >= rear_thresholds[1]) {
         turn_off_all_leds();
         turn_off_buzzer();
         flash_led(YELLOW_LED_PORT, YELLOW_LED_PIN, 5, true);
-    }else if(distance < 40 && distance >= 20){
+    }else if(distance < rear_thresholds[1] && distance >= rear_thresholds[0]){
         turn_off_all_leds();
         turn_off_buzzer();
         flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 3, true);
