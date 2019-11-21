@@ -201,17 +201,6 @@ char ADCState = 0; //Busy state of the ADC
 int16_t ADCResult = 0; //Storage for the ADC conversion result
 
 void main(void){
-    char buttonState = 0; //Current button press state (to allow edge detection)
-
-    /*
-     * Functions with two underscores in front are called compiler intrinsics.
-     * They are documented in the compiler user guide, not the IDE or MCU guides.
-     * They are a shortcut to insert some assembly code that is not really
-     * expressible in plain C/C++. Google "MSP430 Optimizing C/C++ Compiler
-     * v18.12.0.LTS" and search for the word "intrinsic" if you want to know
-     * more.
-     * */
-
     //Turn off interrupts during initialization
     __disable_interrupt();
 
@@ -233,14 +222,6 @@ void main(void){
     volatile uint16_t rear_distance = 100;
     volatile uint16_t forward_distance = 100;
 
-     /*
-     * The MSP430 MCUs have a variety of low power modes. They can be almost
-     * completely off and turn back on only when an interrupt occurs. You can
-     * look up the power modes in the Family User Guide under the Power Management
-     * Module (PMM) section. You can see the available API calls in the DriverLib
-     * user guide, or see "pmm.h" in the driverlib directory. Unless you
-     * purposefully want to play with the power modes, just leave this command in.
-     */
     PMM_unlockLPM5(); //Disable the GPIO power-on default high-impedance mode to activate previously configured port settings
 
     //All done initializations - turn interrupts back on.
@@ -252,23 +233,10 @@ void main(void){
     while(1){
         // check for user mode
         if(on_double_button_hold(&button_hold_count, LONG_BTN_HOLD_TIME)){
+            Timer_A_stop(TIMER_A0_BASE);
             button_hold_count = 0;
             user_mode();
         }
-
-        //Buttons SW1 and SW2 are active low (1 until pressed, then 0)
-        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 1) & (buttonState == 0)) //Look for rising edge
-        {
-            Timer_A_stop(TIMER_A0_BASE);    //Shut off PWM signal
-            buttonState = 1;                //Capture new button state
-        }
-        if ((GPIO_getInputPinValue(SW1_PORT, SW1_PIN) == 0) & (buttonState == 1)) //Look for falling edge
-        {
-            Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
-            buttonState = 0;                            //Capture new button state
-        }
-
-        uint16_t lcd_value = forward_distance;
 
         // Display distances
         // Start an ADC conversion (if it's not busy) in Single-Channel, Single Conversion Mode
@@ -294,7 +262,9 @@ void main(void){
 
                 send_trigger(TRIGGER_PORT_FWD, TRIGGER_PIN_FWD, 10);
                 rear_distance = calculate_distance(time);
-//                turn_on_buzzer(distance_forward);
+                if(rear_distance > 400){
+                    rear_distance = 400;
+                }
                 turn_on_led(rear_distance, rear_thresholds);
             }else{
                 direction = FORWARD;
@@ -304,6 +274,10 @@ void main(void){
 
                 send_trigger(TRIGGER_PORT_REAR, TRIGGER_PIN_REAR, 10);
                 forward_distance = calculate_distance(time);
+
+                if(forward_distance > 400){
+                    forward_distance = 400;
+                }
                 buzzer(forward_distance, front_thresholds);
             }
             counter = 0;

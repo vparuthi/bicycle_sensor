@@ -19,10 +19,16 @@ void beep_buzzer(int period, int num_beeps){
 
     for(i = 0; i < num_beeps; i ++){
         turn_off_buzzer();
+        Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
 
         int count = 0;
         while(count < BEEP_TIME/num_beeps){
-            Timer_A_outputPWM(TIMER_A0_BASE, &param);   //Turn on PWM
+            count++;
+        }
+
+        turn_off_buzzer();
+        count = 0;
+        while(count < (BEEP_TIME/num_beeps)){
             count++;
         }
     }
@@ -31,9 +37,9 @@ void beep_buzzer(int period, int num_beeps){
 
 void buzzer(uint16_t distance, int *thresholds){
     if(distance < thresholds[1] && distance >= thresholds[0]){
-        beep_buzzer(1000, 2);
+        beep_buzzer(850, 2);
     }else if(distance < thresholds[0]){
-        beep_buzzer(800, 4);
+        beep_buzzer(700, 4);
     }else{
         turn_off_buzzer();
     }

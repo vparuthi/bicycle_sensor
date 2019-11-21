@@ -19,8 +19,8 @@
 
 // front thresholds
 #define NUM_FWD_THRESHOLDS 2
-#define DEFAULT_2_BEEP_THRES 20
-#define DEFAULT_4_BEEP_THRES 40
+#define DEFAULT_2_BEEP_THRES 10
+#define DEFAULT_4_BEEP_THRES 20
 
 //Output pin to buzzer
 #define PWM_PORT        GPIO_PORT_P1

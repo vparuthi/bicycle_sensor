@@ -14,6 +14,7 @@
 
 #define FORWARD 0
 #define REAR 1
+#define CALIBRATION_VALUE 9
 
 void send_trigger(int port, int pin, int u_delay){
     GPIO_setOutputHighOnPin(port, pin);
@@ -26,5 +27,5 @@ void Init_Distance_Sensor(void){
 }
 
 uint16_t calculate_distance(int time){
-    return (time * MICRO_SEC_PER_TICK)/58;
+    return (time * MICRO_SEC_PER_TICK)/(58 + CALIBRATION_VALUE);
 }

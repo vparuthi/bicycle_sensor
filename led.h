@@ -51,14 +51,14 @@ void turn_on_led(uint16_t distance, int *rear_thresholds){
     } else if (distance < rear_thresholds[2] && distance >= rear_thresholds[1]) {
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(YELLOW_LED_PORT, YELLOW_LED_PIN, 5, true);
+        flash_led(YELLOW_LED_PORT, YELLOW_LED_PIN, 5, false);
     }else if(distance < rear_thresholds[1] && distance >= rear_thresholds[0]){
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 3, true);
+        flash_led(ORANGE_LED_PORT, ORANGE_LED_PIN, 3, false);
     }else{
         turn_off_all_leds();
         turn_off_buzzer();
-        flash_led(RED_LED_PORT, RED_LED_PIN, 1, true);
+        flash_led(RED_LED_PORT, RED_LED_PIN, 1, false);
     }
 }
