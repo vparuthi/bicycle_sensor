@@ -58,7 +58,7 @@ int on_double_button_hold(int *count, int hold_time);
 void on_single_button_hold(int *count, int *button_state, int *both_pressed, int port, int pin);
 void on_button_click(int *distance, int *counter, int *button_state, int min_distance, int port, int pin);
 int adjust_distance(int min_distance, int init_distance_val);
-void user_mode(void);
+void setup_mode(void);
 void set_distance_thresholds(int *thresholds, int len);
 
 Timer_A_outputPWMParam param; //Timer configuration data structure for PWM

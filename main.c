@@ -156,8 +156,8 @@ void set_distance_thresholds(int *thresholds, int len){
     }
 }
 
-void user_mode(void){
-    displayScrollText("USER MODE");
+void setup_mode(void){
+    displayScrollText("SETUP MODE");
 
     // counters:
     int return_count = 0;
@@ -231,11 +231,11 @@ void main(void){
     int button_hold_count = 0;
 
     while(1){
-        // check for user mode
+        // check for setup mode
         if(on_double_button_hold(&button_hold_count, LONG_BTN_HOLD_TIME)){
             Timer_A_stop(TIMER_A0_BASE);
             button_hold_count = 0;
-            user_mode();
+            setup_mode();
         }
 
         // Display distances
